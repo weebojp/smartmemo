@@ -64,11 +64,19 @@ The schema creates:
 - Related memo discovery based on cosine similarity with configurable thresholds
 - Background AI processing that doesn't block user interactions
 
-**Multi-Modal Search System**:
-- **Semantic Search**: Vector similarity search with pgvector operators
-- **Text Search**: PostgreSQL full-text search across all metadata fields
-- **Hybrid Search**: Weighted combination (70% semantic, 30% text) with score-based ranking
-- **Advanced Search**: Multi-criteria filtering with tags, categories, date ranges, content length, and AI processing status
+**Enhanced Search System**:
+- **EnhancedSearchBar**: Intuitive button-based mode selection with visual indicators
+- **5 Search Modes**: Smart (hybrid), AI (semantic), Text, Fuzzy, and Advanced
+- **Real-time Suggestions**: Auto-complete with categorized suggestions (history, tags, content, AI, keywords)
+- **Search Result Display**: Categorized result counts with visual badges
+- **Debounced Input**: 300ms delay for optimal performance
+
+**Modal & UI Enhancements**:
+- **MemoDetailModal**: Full-screen memo viewer with complete content display
+- **Responsive Modal**: Centered positioning with 95vh max-height and adaptive padding
+- **Tag Display**: Improved TagHighlight with overflow handling and "+N" indicators
+- **Custom Scrollbars**: Styled scroll areas with webkit/firefox support
+- **Click-to-View**: Card click opens modal, button clicks handle specific actions
 
 **Bulk Operations & Data Management**:
 - **Selection System**: Multi-select memos with floating operations bar
@@ -86,7 +94,7 @@ The schema creates:
 - **Keyboard Shortcuts**: Platform-aware (Ctrl/Cmd+N, K, S, H, ?)
 - **Help System**: Comprehensive documentation with FAQ and search
 - **Toast Notifications**: Action feedback with undo capabilities
-- **Responsive Design**: Tabbed interface with mobile support
+- **Responsive Design**: Mobile-first design with adaptive layouts
 
 ### Data Architecture
 The app centers around the `memos` table with AI-enhanced metadata:
@@ -169,16 +177,24 @@ app/                     # Next.js 15 App Router
 └── layout.tsx          # Root layout with providers
 
 components/
-├── ui/                 # Custom UI components (no Radix UI)
+├── ui/                 # Custom UI components (minimal external deps)
 │   ├── button.tsx      # Variant-based button with CVA
 │   ├── card.tsx        # Compound card components
+│   ├── dialog.tsx      # Modal dialog with backdrop and centering
+│   ├── scroll-area.tsx # Custom scrollbar styling
+│   ├── separator.tsx   # Divider component
 │   ├── toast.tsx       # Zustand-based toast system
 │   └── tabs.tsx        # Tab navigation components
 ├── auth/               # Auth components (login/signup forms)
+├── debug/              # AI debugging and diagnostics
+│   └── ai-debug-panel.tsx  # OpenAI connection testing
 └── memo/               # Feature components
-    ├── memo-list.tsx   # Server component with search integration
-    ├── memo-card.tsx   # Individual memo with actions
-    ├── search-bar.tsx  # Multi-mode search UI
+    ├── memo-list.tsx   # Main memo display with enhanced search
+    ├── memo-card.tsx   # Individual memo with modal trigger
+    ├── memo-detail-modal.tsx   # Full-screen memo viewer
+    ├── enhanced-search-bar.tsx # Intuitive search mode selection
+    ├── search-highlight.tsx    # Text highlighting and tag display
+    ├── memo-placeholder.tsx    # Empty states and skeletons
     ├── graph-view.tsx  # Cytoscape.js visualization
     ├── bulk-operations-bar.tsx  # Floating selection actions
     ├── advanced-search.tsx      # Multi-criteria filters
@@ -188,15 +204,25 @@ lib/
 ├── actions/            # Server actions (all data mutations)
 │   ├── memo.ts         # CRUD operations with Zod validation
 │   ├── search.ts       # Semantic, text, hybrid, advanced search
+│   ├── search-history.ts   # Search suggestions and history
+│   ├── related.ts      # Related memo discovery
+│   ├── debug-ai.ts     # AI connection testing and diagnostics
 │   ├── bulk-operations.ts  # Bulk delete, tag, export actions
 │   └── import.ts       # Import processing and validation
 ├── stores/             # Zustand client state
 │   ├── undo-store.ts   # Pending deletions with timeouts
 │   └── selection-store.ts  # Multi-select state management
+├── search/             # Search infrastructure
+│   ├── fuzzy-search.ts     # Fuzzy matching algorithms
+│   ├── text-normalizer.ts  # Japanese text normalization
+│   ├── search-engine.ts    # Multi-mode search orchestration
+│   └── suggestion-provider.ts  # Search auto-completion
 ├── import/             # Import infrastructure
 │   └── import-parser.ts    # Format parsers (MD, JSON, CSV, Obsidian)
-└── export/             # Export infrastructure
-    └── export-formats.ts   # Multi-format export generators
+├── export/             # Export infrastructure
+│   └── export-formats.ts   # Multi-format export generators
+└── analytics/          # User metrics and analytics
+    └── user-metrics.ts     # Usage tracking and statistics
 ```
 
 ### Critical Implementation Notes
@@ -216,11 +242,13 @@ lib/
 - Default category should be '一般' not 'General'
 
 #### Search Implementation
+- **EnhancedSearchBar** provides intuitive button-based mode selection
 - Semantic search requires embeddings - fallback to text search if missing
 - Hybrid search combines 70% semantic + 30% text results
 - Advanced search filters apply on top of base search results
 - Use pgvector's `<=>` operator for cosine distance calculations
 - Lower similarity thresholds (0.3) for knowledge graph connections
+- Real-time suggestions categorized by type (history, tags, content, AI, keywords)
 
 #### Import/Export Considerations
 - Always validate imported data structure before processing
@@ -367,7 +395,26 @@ const cy = cytoscape({
 })
 ```
 
+#### Modal & UI Implementation
+- **MemoDetailModal** uses Dialog with two-layer container system for proper centering
+- Modal max-height is 95vh with responsive padding (p-4/p-6/p-8)
+- **TagHighlight** component includes overflow handling with "+N" indicators
+- Custom scrollbars applied via `.custom-scrollbar` CSS class
+- Card clicks open modal, button clicks (edit/delete) have stopPropagation
+
 ### Troubleshooting Common Issues
+
+#### Modal Display Issues
+- Modal should be centered with 95vh max-height and adaptive padding
+- If modal content is cut off, check for competing CSS height constraints
+- Dialog uses two-layer container: outer (full screen) + inner (centered content)
+- ScrollArea has custom scrollbar styling for better UX
+
+#### Search UI Problems
+- EnhancedSearchBar should show 5 search mode buttons with visual indicators
+- If suggestions not appearing, check `getSearchSuggestions` server action
+- Search mode descriptions should appear below button selection
+- Debounce is set to 300ms for optimal suggestion fetching
 
 #### Knowledge Graph Not Displaying
 - Check browser console for Cytoscape initialization errors
@@ -378,29 +425,33 @@ const cy = cytoscape({
 #### Build Errors
 - TypeScript strict mode is enabled - handle all nullable values
 - ESLint configured for Next.js - use proper disable comments when needed
-- Missing Radix UI deps - we use custom components instead
+- We use custom UI components instead of full Radix UI dependencies
 - Dynamic imports for Cytoscape to avoid SSR issues
 
 #### AI Processing Failures
 - Check OpenAI API key is valid and has credits
 - Verify rate limits aren't exceeded
+- Use AI Debug Panel (tab in main interface) to test OpenAI connectivity
 - Fallback to manual categorization if AI fails
 - Embeddings are optional - search still works without them
 
 ### Testing Locally
 
 ```bash
-# Run development server
+# Run development server (uses Turbopack for faster builds)
 npm run dev
 
 # Test key features:
 # 1. Create a memo and verify AI processing (tags, category, summary)
-# 2. Search using different modes (semantic, text, hybrid)
-# 3. Select multiple memos and test bulk operations
-# 4. Import sample data (Markdown/JSON/CSV files)
-# 5. Export memos in different formats
-# 6. Check knowledge graph visualization
-# 7. Test keyboard shortcuts (Ctrl/Cmd + N, K, S, H)
+# 2. Test EnhancedSearchBar with 5 different search modes
+# 3. Click memo cards to open MemoDetailModal with full content
+# 4. Verify tag display shows "+N" for overflow tags
+# 5. Test AI Debug Panel tab for OpenAI connectivity
+# 6. Select multiple memos and test bulk operations
+# 7. Import sample data (Markdown/JSON/CSV files)
+# 8. Export memos in different formats
+# 9. Check knowledge graph visualization
+# 10. Test keyboard shortcuts (Ctrl/Cmd + N, K, S, H)
 ```
 
 ### Performance Optimization Tips
