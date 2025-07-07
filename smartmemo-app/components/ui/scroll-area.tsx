@@ -11,10 +11,15 @@ export const ScrollArea = React.forwardRef<HTMLDivElement, ScrollAreaProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("relative overflow-auto", className)}
+      className={cn("relative overflow-y-auto overflow-x-hidden custom-scrollbar", className)}
+      style={{ 
+        maxHeight: '100%'
+      }}
       {...props}
     >
-      {children}
+      <div className="w-full">
+        {children}
+      </div>
     </div>
   )
 )

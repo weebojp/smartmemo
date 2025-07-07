@@ -38,7 +38,7 @@ export function MemoDetailModal({
   onEdit,
   onDelete,
   searchQuery = '',
-  searchHighlights: _searchHighlights,
+  searchHighlights: _,
   similarity,
   matchedFields = [],
   children,
@@ -69,11 +69,11 @@ export function MemoDetailModal({
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[85vh] w-[95vw] sm:w-[90vw] md:w-[85vw] lg:w-[80vw] p-0">
-        <DialogHeader className="p-6 pb-0">
+      <DialogContent className="p-0">
+        <DialogHeader className="px-6 py-4 flex-shrink-0">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
-              <DialogTitle className="text-xl font-semibold mb-4">
+              <DialogTitle className="text-xl font-semibold mb-3">
                 メモ詳細
               </DialogTitle>
               
@@ -167,10 +167,10 @@ export function MemoDetailModal({
           </div>
         </DialogHeader>
         
-        <Separator />
+        <Separator className="flex-shrink-0" />
         
-        <ScrollArea className="flex-1 px-6 py-6">
-          <div className="space-y-6">
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="px-6 py-6 space-y-6">
             {/* タグ */}
             {memo.tags.length > 0 && (
               <div>
@@ -339,14 +339,16 @@ export function MemoDetailModal({
         
         {/* 関連メモ */}
         {showRelated && memo.embedding && memo.embedding.length > 0 && (
-          <div className="border-t p-6">
-            <RelatedMemos 
-              memoId={memo.id} 
-              onMemoClick={(relatedMemoId) => {
-                // Handle navigation to related memo
-                console.log('Navigate to memo:', relatedMemoId)
-              }}
-            />
+          <div className="border-t flex-shrink-0">
+            <div className="p-6">
+              <RelatedMemos 
+                memoId={memo.id} 
+                onMemoClick={(relatedMemoId) => {
+                  // Handle navigation to related memo
+                  console.log('Navigate to memo:', relatedMemoId)
+                }}
+              />
+            </div>
           </div>
         )}
       </DialogContent>
