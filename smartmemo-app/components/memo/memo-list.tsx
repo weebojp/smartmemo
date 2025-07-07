@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { MemoCard } from './memo-card'
 import { MemoForm } from './memo-form'
-import { SearchBar } from './search-bar'
+import { EnhancedSearchBar } from './enhanced-search-bar'
 import { MemoPlaceholder, EmptyState } from './memo-placeholder'
 import { Button } from '@/components/ui/button'
 import { Plus, HelpCircle, Keyboard } from 'lucide-react'
@@ -213,48 +213,70 @@ export function MemoList({ memos }: MemoListProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 max-w-2xl">
-          <SearchBar
-            ref={searchInputRef}
-            onResults={handleSearchResults}
-            onClear={handleClearSearch}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowHelp(true)}
-            title="ヘルプセンター (Ctrl+H)"
-          >
-            <HelpCircle className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowShortcuts(true)}
-            title="キーボードショートカット (?)"
-          >
-            <Keyboard className="h-4 w-4" />
-          </Button>
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Memo
-          </Button>
+      <div className="space-y-4">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1">
+            <EnhancedSearchBar
+              ref={searchInputRef}
+              onResults={handleSearchResults}
+              onClear={handleClearSearch}
+            />
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowHelp(true)}
+              title="ヘルプセンター (Ctrl+H)"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowShortcuts(true)}
+              title="キーボードショートカット (?)"
+            >
+              <Keyboard className="h-4 w-4" />
+            </Button>
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">New Memo</span>
+              <span className="sm:hidden">新規</span>
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Search Results Info */}
       {isSearching && (
-        <div className="text-sm text-muted-foreground">
-          Found {displayMemos.length} memo(s)
-          {searchResults && searchResults.length > 0 && (
-            <span className="ml-2">
-              • Mixed: {searchResults.filter(m => m.searchType === 'semantic').length} semantic, 
-              {searchResults.filter(m => m.searchType === 'text').length} text matches
-            </span>
-          )}
+        <div className="bg-muted/50 p-4 rounded-lg">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium">
+                検索結果: {displayMemos.length}件のメモ
+              </div>
+              {currentSearchQuery && (
+                <div className="text-xs text-muted-foreground">
+                  「{currentSearchQuery}」
+                </div>
+              )}
+            </div>
+            {searchResults && searchResults.length > 0 && (
+              <div className="flex gap-2 text-xs">
+                {searchResults.filter(m => m.searchType === 'semantic').length > 0 && (
+                  <span className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                    AI検索: {searchResults.filter(m => m.searchType === 'semantic').length}件
+                  </span>
+                )}
+                {searchResults.filter(m => m.searchType === 'text').length > 0 && (
+                  <span className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2 py-1 rounded">
+                    テキスト: {searchResults.filter(m => m.searchType === 'text').length}件
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

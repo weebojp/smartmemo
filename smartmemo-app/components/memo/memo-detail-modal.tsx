@@ -69,7 +69,7 @@ export function MemoDetailModal({
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] w-[90vw] p-0">
+      <DialogContent className="max-w-3xl max-h-[85vh] w-[95vw] sm:w-[90vw] md:w-[85vw] lg:w-[80vw] p-0">
         <DialogHeader className="p-6 pb-0">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
@@ -169,8 +169,8 @@ export function MemoDetailModal({
         
         <Separator />
         
-        <ScrollArea className="flex-1 px-6">
-          <div className="space-y-6 py-6">
+        <ScrollArea className="flex-1 px-6 py-6">
+          <div className="space-y-6">
             {/* タグ */}
             {memo.tags.length > 0 && (
               <div>
