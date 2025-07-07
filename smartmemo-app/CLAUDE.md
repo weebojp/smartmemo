@@ -2,38 +2,53 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## SmartMemo - AI-Powered Knowledge Management System
+
+SmartMemo is a Next.js 15 application that combines AI processing, vector embeddings, and advanced search capabilities to create an intelligent personal knowledge management system. The app automatically analyzes, categorizes, and connects memos while providing sophisticated search and bulk management features.
+
 ## Development Setup
 
 ### Prerequisites
 - Node.js 18+ and npm
-- Supabase account and project
-- OpenAI API key
+- Supabase account and project with pgvector extension
+- OpenAI API key (GPT-4o-mini and text-embedding-3-small)
 
 ### Environment Variables
 Copy `.env.local.example` to `.env.local` and fill in:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
+- `SUPABASE_SERVICE_ROLE_KEY` - Service role key for server-side operations
+- `OPENAI_API_KEY` - OpenAI API key for AI processing
 
 ### Commands
-- `npm run dev` - Start development server with Turbopack
-- `npm run build` - Build production version
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
+```bash
+npm install              # Install dependencies
+npm run dev              # Start development server with Turbopack at localhost:3000
+npm run build            # Build production version
+npm run start            # Start production server
+npm run lint             # Run ESLint checks
+```
 
 ### Database Setup
-Run the SQL schema in `supabase/schema.sql` in your Supabase project to create the required tables with pgvector extension.
+1. Enable pgvector extension in Supabase SQL Editor
+2. Run the SQL schema in `supabase/schema.sql`
+3. Ensure RLS policies are enabled for security
+
+The schema creates:
+- `memos` table with vector embeddings (1536 dimensions)
+- `memo_relations` table for semantic relationships
+- IVFFlat index for efficient similarity search
+- RLS policies for user data isolation
 
 ## Architecture Overview
 
 ### Tech Stack
-- **Frontend**: Next.js 15 with App Router, React 19, TypeScript
-- **Styling**: Tailwind CSS v4, shadcn/ui components built on Radix UI, Cytoscape.js for graph visualization
+- **Frontend**: Next.js 15 (App Router), React 19, TypeScript
+- **Styling**: Tailwind CSS v4, custom UI components, Cytoscape.js for graph visualization
 - **Backend**: Server Actions (no API routes), Supabase as BaaS
 - **Database**: Supabase PostgreSQL + pgvector for vector embeddings
 - **AI**: OpenAI GPT-4o-mini + text-embedding-3-small
-- **State**: React Query for server state, Zustand for client state
+- **State**: React Query for server state, Zustand for client state (undo, selection, toast)
 
 ### Authentication & Security
 - **Supabase Auth** with cookie-based sessions managed via middleware
@@ -44,24 +59,34 @@ Run the SQL schema in `supabase/schema.sql` in your Supabase project to create t
 ### Core Features Implemented
 
 **AI-Powered Knowledge Management**:
-- Automatic content analysis with tag generation, categorization, and summarization
-- Vector embeddings for semantic similarity and search
-- Related memo discovery based on semantic relationships
+- Automatic content analysis with Japanese-optimized tag generation, categorization, and summarization
+- Vector embeddings (1536-dim) for semantic similarity and search
+- Related memo discovery based on cosine similarity with configurable thresholds
+- Background AI processing that doesn't block user interactions
 
 **Multi-Modal Search System**:
-- **Semantic Search**: Uses vector embeddings for meaning-based search
-- **Text Search**: Traditional keyword-based search across all fields
-- **Hybrid Search**: Combines both approaches with weighted ranking (70% semantic, 30% text)
+- **Semantic Search**: Vector similarity search with pgvector operators
+- **Text Search**: PostgreSQL full-text search across all metadata fields
+- **Hybrid Search**: Weighted combination (70% semantic, 30% text) with score-based ranking
+- **Advanced Search**: Multi-criteria filtering with tags, categories, date ranges, content length, and AI processing status
+
+**Bulk Operations & Data Management**:
+- **Selection System**: Multi-select memos with floating operations bar
+- **Bulk Actions**: Delete (with undo), add tags, change categories, export
+- **Import/Export**: Support for Markdown (YAML frontmatter), JSON, CSV, and Obsidian formats
+- **Undo System**: 5-second grace period for deletions with toast notifications
 
 **Interactive Knowledge Graph**:
-- Cytoscape.js-powered visualization of memo relationships
+- Cytoscape.js visualization with grid layout for stability
 - Category-based color coding and similarity-based edge weights
-- Expandable full-screen view with interactive node selection
+- Debug logging and error handling for robust display
+- Full-screen expandable view with node interaction
 
-**Analytics & Statistics**:
-- Comprehensive dashboard with memo counts, AI processing status
-- Tag popularity rankings and engagement metrics
-- Knowledge graph connectivity statistics
+**User Experience Enhancements**:
+- **Keyboard Shortcuts**: Platform-aware (Ctrl/Cmd+N, K, S, H, ?)
+- **Help System**: Comprehensive documentation with FAQ and search
+- **Toast Notifications**: Action feedback with undo capabilities
+- **Responsive Design**: Tabbed interface with mobile support
 
 ### Data Architecture
 The app centers around the `memos` table with AI-enhanced metadata:
@@ -109,92 +134,100 @@ interface Memo {
 
 #### Server Actions Pattern
 All data mutations use Next.js 15 Server Actions with:
-- **Zod validation** for type safety and runtime checks
-- **User authentication** verification on every action
-- **Automatic revalidation** via `revalidatePath()`
-- **Error handling** with proper user feedback
+- **Zod validation** for input validation and type safety
+- **User authentication** verification via Supabase auth check
+- **Automatic revalidation** via `revalidatePath('/')` after mutations
+- **Structured responses** with success/error states and data
 
-#### Component Composition
-- **Compound components** (Card family) for flexible UI composition
-- **Variant-based styling** using class-variance-authority
-- **Forward refs** for proper DOM access in ui components
-- **Controlled components** with proper state management
+#### Component Architecture
+- **Server Components** for initial data fetching and SEO
+- **Client Components** for interactivity with 'use client' directive
+- **Custom UI Components** replacing Radix UI dependencies for smaller bundle
+- **Compound Components** pattern for flexible composition
+- **Forward Refs** for proper DOM element access
 
-#### Date Handling
-- **Custom date utilities** (`lib/utils/date.ts`) prevent hydration mismatches
-- **Consistent formatting** across server and client rendering
-- **Timezone-safe** operations using explicit formatting
+#### State Management Patterns
+- **Zustand Stores**: Client-side state for undo, selection, and toast
+- **React Query**: Server state caching and synchronization
+- **Optimistic Updates**: Immediate UI feedback with rollback on error
+- **Server State**: All persistent data flows through server actions
 
-### Directory Structure Patterns
+#### Error Handling Strategy
+- **Graceful AI Failures**: App functions without AI features if API fails
+- **User Feedback**: Toast notifications for all operations
+- **Fallback Strategies**: Text search when semantic search fails
+- **Type Safety**: TypeScript with strict null checks
+
+### Directory Structure and Key Files
+
 ```
-app/
-├── (auth)/              # Route groups for layout organization
-│   ├── login/page.tsx   # Auth pages with dedicated layout
-│   └── signup/page.tsx
-└── page.tsx             # Main app with tabbed interface (Memos/Graph/Stats)
+app/                     # Next.js 15 App Router
+├── (auth)/             # Auth route group with minimal layout
+│   ├── login/          # Login page with email/password
+│   └── signup/         # Signup with email verification
+├── page.tsx            # Main app - tabbed interface (Memos/Graph/Stats)
+└── layout.tsx          # Root layout with providers
 
 components/
-├── ui/                  # Base shadcn/ui components (Button, Card, Tabs, etc.)
-├── auth/                # Authentication-specific components  
-└── memo/                # Domain-specific memo components
-    ├── memo-list.tsx    # Main memo display with integrated search
-    ├── memo-card.tsx    # Individual memo with related memos toggle
-    ├── search-bar.tsx   # Multi-mode search interface
-    ├── graph-view.tsx   # Cytoscape.js knowledge graph
-    ├── related-memos.tsx # Semantic similarity display
-    └── memo-stats.tsx   # Analytics dashboard
+├── ui/                 # Custom UI components (no Radix UI)
+│   ├── button.tsx      # Variant-based button with CVA
+│   ├── card.tsx        # Compound card components
+│   ├── toast.tsx       # Zustand-based toast system
+│   └── tabs.tsx        # Tab navigation components
+├── auth/               # Auth components (login/signup forms)
+└── memo/               # Feature components
+    ├── memo-list.tsx   # Server component with search integration
+    ├── memo-card.tsx   # Individual memo with actions
+    ├── search-bar.tsx  # Multi-mode search UI
+    ├── graph-view.tsx  # Cytoscape.js visualization
+    ├── bulk-operations-bar.tsx  # Floating selection actions
+    ├── advanced-search.tsx      # Multi-criteria filters
+    └── import-dialog.tsx        # Import wizard UI
 
 lib/
-├── actions/             # Server actions (data layer)
-│   ├── memo.ts          # Basic CRUD operations
-│   ├── related.ts       # Related memo discovery
-│   ├── search.ts        # Multi-mode search implementation
-│   └── ai.ts            # AI processing coordination
-├── ai/                  # AI integration and processing
-│   └── openai.ts        # OpenAI API calls and embedding generation
-├── supabase/            # Database client configuration
-└── utils/               # Utility functions (date, styling)
+├── actions/            # Server actions (all data mutations)
+│   ├── memo.ts         # CRUD operations with Zod validation
+│   ├── search.ts       # Semantic, text, hybrid, advanced search
+│   ├── bulk-operations.ts  # Bulk delete, tag, export actions
+│   └── import.ts       # Import processing and validation
+├── stores/             # Zustand client state
+│   ├── undo-store.ts   # Pending deletions with timeouts
+│   └── selection-store.ts  # Multi-select state management
+├── import/             # Import infrastructure
+│   └── import-parser.ts    # Format parsers (MD, JSON, CSV, Obsidian)
+└── export/             # Export infrastructure
+    └── export-formats.ts   # Multi-format export generators
 ```
 
-### Error Handling Strategy
-- **Graceful AI failures**: App continues to work without AI features
-- **Environment validation**: Middleware checks for required env vars
-- **User feedback**: Loading states and error messages for all operations
-- **Fallback content**: Default values when AI processing fails
+### Critical Implementation Notes
 
-### Performance Considerations
-- **Vector indexing**: IVFFlat index on embeddings for fast similarity search
-- **Server components**: Initial data fetching without client hydration
-- **React Query caching**: Efficient client-side data management
-- **Async AI processing**: Non-blocking background content analysis
+#### Server Actions Best Practices
+- Always validate inputs with Zod schemas before processing
+- Check user authentication at the start of every server action
+- Return structured responses: `{ success: boolean, data?: any, error?: string }`
+- Call `revalidatePath('/')` after data mutations to update UI
+- Handle errors gracefully with try-catch and return error messages
 
-### Development Guidelines
+#### AI Processing Guidelines
+- AI processing happens asynchronously after memo creation
+- Use `processAndUpdateMemo()` for background AI analysis
+- Always provide fallbacks when AI features fail
+- Japanese prompts yield better results for Japanese content
+- Default category should be '一般' not 'General'
 
-#### Adding New Features
-1. **Create Zod schema** for any new data structures
-2. **Add server action** in `lib/actions/` for data operations
-3. **Update database types** in `types/database.ts`
-4. **Create components** following existing composition patterns
-5. **Handle loading/error states** consistently
+#### Search Implementation
+- Semantic search requires embeddings - fallback to text search if missing
+- Hybrid search combines 70% semantic + 30% text results
+- Advanced search filters apply on top of base search results
+- Use pgvector's `<=>` operator for cosine distance calculations
+- Lower similarity thresholds (0.3) for knowledge graph connections
 
-#### Working with AI Features
-- **Test with fallbacks**: Ensure features work when AI is unavailable
-- **Structure prompts carefully**: Use JSON mode for consistent outputs
-- **Handle rate limits**: Implement proper error handling for API limits
-- **Monitor costs**: Be mindful of embedding generation frequency
-
-#### Working with Search & Graph Features
-- **Vector similarity**: Use `findSimilarMemos()` for semantic relationships
-- **Search modes**: Leverage hybrid search for best user experience
-- **Graph performance**: Limit nodes and edges for smooth visualization
-- **Similarity thresholds**: Adjust based on content type and user feedback
-
-#### Database Changes
-- **Update schema**: Modify `supabase/schema.sql` for any table changes
-- **Update types**: Regenerate TypeScript types from Supabase
-- **Consider RLS**: Ensure new tables/columns have proper security policies
-- **Index strategically**: Add indexes for query performance
-- **Vector operations**: Use pgvector operators (`<=>` for cosine distance)
+#### Import/Export Considerations
+- Always validate imported data structure before processing
+- Support YAML frontmatter in Markdown files
+- Handle duplicate detection using content prefix matching
+- Process imports in batches to avoid timeouts
+- Export includes metadata based on user preferences
 
 ### Common Patterns
 
@@ -209,7 +242,85 @@ export async function actionName(data: ActionSchema) {
   const validated = schema.parse(data)
   // ... operation
   
-  revalidatePath('/relevant-path')
+  revalidatePath('/')
+  
+  return {
+    success: true,
+    data: result,
+    // Include relevant response data for client feedback
+  }
+}
+```
+
+#### Bulk Operations Pattern
+```typescript
+// Server action with comprehensive error handling
+export async function bulkOperation(data: BulkSchema) {
+  const result = { success: true, processed: 0, errors: [] }
+  
+  try {
+    for (const item of data.items) {
+      try {
+        // Process individual item
+        await processItem(item)
+        result.processed++
+      } catch (error) {
+        result.errors.push({
+          item: item.id,
+          message: error.message
+        })
+      }
+    }
+    
+    return result
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+```
+
+#### Advanced Search Pattern
+```typescript
+// Flexible search with multiple filter types
+let query = supabase.from('memos').select('*')
+
+// Apply text search
+if (filters.query) {
+  query = query.or(`content.ilike.%${filters.query}%`)
+}
+
+// Apply array filters
+if (filters.tags.length > 0) {
+  query = query.overlaps('tags', filters.tags)
+}
+
+// Apply date range
+if (filters.dateRange.start) {
+  query = query.gte('created_at', filters.dateRange.start.toISOString())
+}
+
+// Apply sorting and limit
+query = query.order(filters.sortBy, { ascending: filters.sortOrder === 'asc' })
+return query.limit(20)
+```
+
+#### Import/Export Pattern
+```typescript
+// File processing with format detection
+export function parseImportedFile(content: string, filename: string) {
+  const extension = filename.toLowerCase().slice(filename.lastIndexOf('.'))
+  
+  switch (extension) {
+    case '.md':
+    case '.markdown':
+      return parseMarkdownImport(content, options)
+    case '.json':
+      return parseJSONImport(content, options)
+    case '.csv':
+      return parseCSVImport(content, options)
+    default:
+      throw new Error(`Unsupported format: ${extension}`)
+  }
 }
 ```
 
@@ -221,7 +332,10 @@ export function Component() {
   
   const handleAction = (formData: FormData) => {
     startTransition(async () => {
-      await serverAction(formData)
+      const result = await serverAction(formData)
+      if (result.success) {
+        toast({ title: 'Success!' })
+      }
     })
   }
   
@@ -232,12 +346,13 @@ export function Component() {
 #### Vector Search Pattern
 ```typescript
 // Semantic similarity search with pgvector
-const { data, error } = await supabase
+const embeddingString = `[${embedding.join(',')}]`
+const { data } = await supabase
   .from('memos')
   .select(`*, embedding <=> '${embeddingString}' as similarity`)
   .eq('user_id', userId)
   .order('similarity', { ascending: true })
-  .limit(limit)
+  .limit(10)
 ```
 
 #### Graph Visualization Pattern
@@ -248,110 +363,50 @@ const cy = cytoscape({
   container: containerRef.current,
   elements: [...nodes, ...edges],
   style: categoryBasedStyling,
-  layout: { name: 'cose', fit: true }
+  layout: { name: 'grid', fit: true } // Grid layout for stability
 })
 ```
 
-### UX Enhancement Features (Recently Added)
+### Troubleshooting Common Issues
 
-**Undo System** (`lib/stores/undo-store.ts`):
-- Zustand-based state management for pending deletions
-- 5-second grace period with toast notifications
-- Safe deletion system preventing accidental data loss
+#### Knowledge Graph Not Displaying
+- Check browser console for Cytoscape initialization errors
+- Verify memos have embeddings: `SELECT count(*) FROM memos WHERE embedding IS NOT NULL`
+- Grid layout is used for stability - if switching to 'cose', ensure proper physics settings
+- Container ref must be attached before initialization
 
-**Keyboard Shortcuts** (`lib/hooks/use-keyboard-shortcuts.ts`):
-- Platform-aware shortcuts (Ctrl/Cmd detection)
-- Context-sensitive enabling/disabling
-- Custom hook for global and local shortcut management
-- Built-in shortcuts: Ctrl+N (new memo), Ctrl+K (search), Ctrl+S (save), Ctrl+H (help)
+#### Build Errors
+- TypeScript strict mode is enabled - handle all nullable values
+- ESLint configured for Next.js - use proper disable comments when needed
+- Missing Radix UI deps - we use custom components instead
+- Dynamic imports for Cytoscape to avoid SSR issues
 
-**Comprehensive Help System** (`lib/data/help-content.ts`):
-- Structured help content with categories and search
-- FAQ system with tagging
-- Interactive help modal with tabbed navigation
-- Markdown-rendered documentation with syntax highlighting
+#### AI Processing Failures
+- Check OpenAI API key is valid and has credits
+- Verify rate limits aren't exceeded
+- Fallback to manual categorization if AI fails
+- Embeddings are optional - search still works without them
 
-**Toast Notification System** (`components/ui/toast.tsx`):
-- Zustand-based toast state management
-- Auto-dismissing notifications with custom durations
-- Action buttons for user interactions (e.g., Undo)
+### Testing Locally
 
-### Recent Architectural Improvements
+```bash
+# Run development server
+npm run dev
 
-**Japanese-Only AI Processing**:
-- All AI-generated content (tags, categories, summaries) in Japanese
-- Optimized prompts for Japanese content analysis
-- Default category changed from 'General' to '一般'
-
-**Enhanced Graph Visualization**:
-- Improved error handling for Cytoscape initialization
-- Grid layout fallback for better stability
-- Debug logging for graph construction
-- Lower similarity thresholds (0.3) for more connections
-
-**Improved User Feedback**:
-- Loading states for all async operations
-- Visual feedback for keyboard shortcuts availability
-- Detailed error messages with recovery suggestions
-- Real-time status indicators
-
-### Knowledge Graph Troubleshooting
-If the knowledge graph doesn't display:
-1. Check console for Cytoscape initialization errors
-2. Verify memos exist and have embeddings
-3. Lower similarity threshold in `graph-view.tsx` if needed
-4. Ensure container ref is properly attached
-
-### Keyboard Shortcuts Integration
-To add new shortcuts to a component:
-```typescript
-const shortcuts: KeyboardShortcut[] = [
-  {
-    key: 'n',
-    ctrlKey: true,
-    description: '新規作成',
-    action: () => handleNew(),
-    enabled: !isDisabled
-  }
-]
-useKeyboardShortcuts(shortcuts)
+# Test key features:
+# 1. Create a memo and verify AI processing (tags, category, summary)
+# 2. Search using different modes (semantic, text, hybrid)
+# 3. Select multiple memos and test bulk operations
+# 4. Import sample data (Markdown/JSON/CSV files)
+# 5. Export memos in different formats
+# 6. Check knowledge graph visualization
+# 7. Test keyboard shortcuts (Ctrl/Cmd + N, K, S, H)
 ```
 
-### Toast Notifications Pattern
-```typescript
-const { toast } = useToast()
+### Performance Optimization Tips
 
-toast({
-  title: 'タイトル',
-  description: '説明文',
-  duration: 5000,
-  action: <Button onClick={handleAction}>アクション</Button>
-})
-```
-
-### Current Implementation Status
-
-**Fully Implemented & Production Ready**:
-- Complete memo CRUD with AI enhancement and undo functionality
-- Multi-modal search (semantic, text, hybrid) with keyboard shortcuts
-- Interactive knowledge graph with improved error handling
-- Related memo discovery and display
-- Analytics dashboard with engagement tracking
-- Comprehensive help system with searchable documentation
-- Japanese-optimized AI processing pipeline
-- Toast notification system with action support
-- Responsive design with tabbed interface and accessibility features
-
-**Architecture Prepared For**:
-- PWA capabilities (next-pwa ready)
-- Real-time collaboration (Supabase subscriptions)
-- Browser extension integration
-- Mobile app development
-
-### Performance & Scalability Notes
-- **Vector indexing**: IVFFlat index optimized for 100 lists
-- **Search performance**: Hybrid approach balances accuracy and speed
-- **Graph rendering**: All memos displayed with grid layout for stability
-- **AI processing**: Asynchronous to avoid blocking user interactions
-- **Caching**: React Query handles client-side caching efficiently
-- **Help content**: Structured for fast search and navigation
+- **Limit graph nodes**: For large datasets, consider pagination or filtering
+- **Batch operations**: Process imports/exports in chunks to avoid timeouts  
+- **Debounce search**: Already implemented with 300ms delay
+- **Lazy load Cytoscape**: Dynamic imports prevent blocking initial load
+- **Cache embeddings**: Reuse existing embeddings when content unchanged

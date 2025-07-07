@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { MemoCard } from './memo-card'
 import { MemoForm } from './memo-form'
 import { SearchBar } from './search-bar'
+import { MemoPlaceholder, EmptyState } from './memo-placeholder'
 import { Button } from '@/components/ui/button'
 import { Plus, HelpCircle, Keyboard } from 'lucide-react'
 import { Database } from '@/types/database'
@@ -29,8 +30,14 @@ interface SearchResult {
   updated_at: string
   view_count: number
   similarity?: number
-  searchType: 'text' | 'semantic'
+  searchType: 'text' | 'semantic' | 'hybrid' | 'complex' | 'fuzzy'
   rankScore?: number
+  highlights?: Array<{
+    field: string
+    positions: Array<{ start: number; end: number; score: number }>
+  }>
+  fuzzyScore?: number
+  matchedFields?: string[]
 }
 
 interface MemoListProps {
@@ -45,6 +52,7 @@ export function MemoList({ memos }: MemoListProps) {
   const [hiddenMemos, setHiddenMemos] = useState<Set<string>>(new Set())
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const [currentSearchQuery, setCurrentSearchQuery] = useState('')
   
   const searchInputRef = useRef<HTMLInputElement>(null)
   const { addPendingDeletion } = useUndoStore()
@@ -181,14 +189,16 @@ export function MemoList({ memos }: MemoListProps) {
     setEditingMemo(null)
   }
 
-  const handleSearchResults = (results: SearchResult[]) => {
+  const handleSearchResults = (results: SearchResult[], query?: string) => {
     setSearchResults(results)
     setIsSearching(true)
+    setCurrentSearchQuery(query || '')
   }
 
   const handleClearSearch = () => {
     setSearchResults(null)
     setIsSearching(false)
+    setCurrentSearchQuery('')
   }
 
   if (showForm) {
@@ -249,30 +259,37 @@ export function MemoList({ memos }: MemoListProps) {
       )}
 
       {displayMemos.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            {isSearching ? 'No memos match your search.' : 'No memos yet. Create your first memo!'}
-          </p>
-        </div>
+        isSearching ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              検索条件に一致するメモが見つかりませんでした。
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              別のキーワードを試すか、検索モードを変更してみてください。
+            </p>
+          </div>
+        ) : (
+          <EmptyState onCreateMemo={() => setShowForm(true)} />
+        )
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="memo-grid">
           {displayMemos.map((memo) => (
-            <div key={memo.id} className="relative">
-              <MemoCard
-                memo={memo as Memo}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-              {/* Search Result Badge */}
-              {isSearching && 'similarity' in memo && memo.similarity && (
-                <div className="absolute top-2 right-2 z-10">
-                  <div className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
-                    {Math.round(memo.similarity * 100)}%
-                  </div>
-                </div>
-              )}
-            </div>
+            <MemoCard
+              key={memo.id}
+              memo={memo as Memo}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              searchQuery={isSearching ? currentSearchQuery : undefined}
+              searchHighlights={'highlights' in memo ? memo.highlights : undefined}
+              similarity={'similarity' in memo ? memo.similarity : undefined}
+              matchedFields={'matchedFields' in memo ? memo.matchedFields : undefined}
+            />
           ))}
+          
+          {/* メモが少ない場合にプレースホルダーを表示 */}
+          {!isSearching && displayMemos.length > 0 && displayMemos.length < 6 && (
+            <MemoPlaceholder onCreateMemo={() => setShowForm(true)} />
+          )}
         </div>
       )}
 

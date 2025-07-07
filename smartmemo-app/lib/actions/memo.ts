@@ -44,13 +44,23 @@ export async function createMemo(data: z.infer<typeof createMemoSchema>) {
 
   // Process memo with AI in background
   if (newMemo) {
-    processAndUpdateMemo(newMemo.id).catch(console.error)
+    processAndUpdateMemo(newMemo.id)
+      .then(result => {
+        if (!result.success) {
+          console.error('AI processing failed:', result.error)
+        } else {
+          console.log('AI processing completed successfully for memo:', newMemo.id)
+        }
+      })
+      .catch(error => {
+        console.error('AI processing error:', error)
+      })
   }
 
   revalidatePath('/memos')
 }
 
-export async function updateMemo(id: string, data: Partial<z.infer<typeof createMemoSchema>>) {
+export async function getMemos() {
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
@@ -59,21 +69,52 @@ export async function updateMemo(id: string, data: Partial<z.infer<typeof create
     redirect('/login')
   }
 
+  const { data, error } = await supabase
+    .from('memos')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data || []
+}
+
+const updateMemoSchema = z.object({
+  id: z.string().uuid(),
+  content: z.string().min(1, 'Content is required'),
+  contentMarkdown: z.string().min(1, 'Content is required'),
+})
+
+export async function updateMemo(data: z.infer<typeof updateMemoSchema>) {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/login')
+  }
+
+  const validatedData = updateMemoSchema.parse(data)
+  
   const { error } = await supabase
     .from('memos')
     .update({
-      content: data.content,
-      content_markdown: data.contentMarkdown,
-      source: data.source,
-      source_url: data.sourceUrl,
-      source_title: data.sourceTitle,
+      content: validatedData.content,
+      content_markdown: validatedData.contentMarkdown,
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', id)
+    .eq('id', validatedData.id)
     .eq('user_id', user.id)
 
   if (error) {
     throw new Error(error.message)
   }
+
+  // Re-process with AI if content changed significantly
+  processAndUpdateMemo(validatedData.id).catch(console.error)
 
   revalidatePath('/memos')
 }
@@ -87,6 +128,14 @@ export async function deleteMemo(id: string) {
     redirect('/login')
   }
 
+  // Get memo data before deletion (for undo feature)
+  const { data: memoToDelete } = await supabase
+    .from('memos')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
   const { error } = await supabase
     .from('memos')
     .delete()
@@ -97,9 +146,12 @@ export async function deleteMemo(id: string) {
     throw new Error(error.message)
   }
 
-  revalidatePath('/memos')
+  revalidatePath('/')
+  
+  return memoToDelete
 }
 
+// Permanently delete memo (bypasses undo)
 export async function permanentlyDeleteMemo(id: string) {
   const supabase = await createClient()
   
@@ -119,38 +171,10 @@ export async function permanentlyDeleteMemo(id: string) {
     throw new Error(error.message)
   }
 
-  revalidatePath('/memos')
+  revalidatePath('/')
 }
 
-export async function getMemos() {
-  try {
-    const supabase = await createClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return []
-    }
-
-    const { data, error } = await supabase
-      .from('memos')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching memos:', error)
-      return []
-    }
-
-    return data || []
-  } catch (error) {
-    console.error('Error in getMemos:', error)
-    return []
-  }
-}
-
-export async function getMemo(id: string) {
+export async function incrementViewCount(id: string) {
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
@@ -159,16 +183,47 @@ export async function getMemo(id: string) {
     redirect('/login')
   }
 
-  const { data, error } = await supabase
+  await supabase.rpc('increment_view_count', { memo_id: id })
+}
+
+export async function incrementRelatedClickCount(id: string) {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/login')
+  }
+
+  await supabase.rpc('increment_related_click_count', { memo_id: id })
+}
+
+// 手動でAI処理を再実行する関数
+export async function reprocessMemoWithAI(memoId: string) {
+  const supabase = await createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/login')
+  }
+
+  // メモの所有者確認
+  const { data: memo, error } = await supabase
     .from('memos')
-    .select('*')
-    .eq('id', id)
+    .select('id')
+    .eq('id', memoId)
     .eq('user_id', user.id)
     .single()
 
-  if (error) {
-    throw new Error(error.message)
+  if (error || !memo) {
+    throw new Error('Memo not found or access denied')
   }
 
-  return data
+  // AI処理を実行
+  const result = await processAndUpdateMemo(memoId)
+  
+  revalidatePath('/')
+  
+  return result
 }

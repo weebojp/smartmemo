@@ -1,5 +1,10 @@
 import OpenAI from 'openai'
 
+// Check if API key exists
+if (!process.env.OPENAI_API_KEY) {
+  console.error('OPENAI_API_KEY is not set in environment variables')
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -13,16 +18,26 @@ export interface AIProcessingResult {
 }
 
 export async function processContent(content: string): Promise<AIProcessingResult> {
+  console.log('Starting AI processing for content:', content.slice(0, 50) + '...')
+  
   try {
+    // Check API key again
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is missing')
+    }
+    
     // Generate embedding
+    console.log('Generating embedding...')
     const embeddingResponse = await openai.embeddings.create({
       model: 'text-embedding-3-small',
       input: content,
     })
     
     const embedding = embeddingResponse.data[0].embedding
+    console.log('Embedding generated successfully')
 
     // Generate tags, category, summary, and keywords
+    console.log('Generating tags and metadata...')
     const completionResponse = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -58,17 +73,34 @@ export async function processContent(content: string): Promise<AIProcessingResul
       throw new Error('No response from OpenAI')
     }
 
-    const parsed = JSON.parse(aiResponse)
+    console.log('AI response received:', aiResponse)
     
-    return {
+    const parsed = JSON.parse(aiResponse)
+    console.log('Parsed AI response:', parsed)
+    
+    const result = {
       tags: parsed.tags || [],
       category: parsed.category || '一般',
       summary: parsed.summary || '',
       keywords: parsed.keywords || [],
       embedding,
     }
+    
+    console.log('AI processing completed successfully with result:', {
+      tags: result.tags,
+      category: result.category,
+      summary: result.summary.slice(0, 50) + '...',
+      keywords: result.keywords,
+      embeddingLength: result.embedding.length
+    })
+    
+    return result
   } catch (error) {
     console.error('Error processing content with AI:', error)
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
     
     // Return default values if AI processing fails
     return {

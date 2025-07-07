@@ -8,8 +8,8 @@ import { Database } from "@/types/database"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { formatDate } from "@/lib/utils/date"
-import { RelatedMemos } from "./related-memos"
 import { SearchHighlight, TagHighlight } from "./search-highlight"
+import { MemoDetailModal } from "./memo-detail-modal"
 import { useState } from "react"
 
 type Memo = Database['public']['Tables']['memos']['Row']
@@ -49,8 +49,17 @@ export function MemoCard({
   const showSearchInfo = searchQuery && (similarity !== undefined || matchedFields.length > 0)
 
   return (
-    <Card className={`memo-card hover:shadow-lg ${showSearchInfo ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''}`}>
-      <CardHeader className="memo-header pb-3">
+    <MemoDetailModal
+      memo={memo}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      searchQuery={searchQuery}
+      searchHighlights={searchHighlights}
+      similarity={similarity}
+      matchedFields={matchedFields}
+    >
+      <Card className={`memo-card hover:shadow-lg cursor-pointer ${showSearchInfo ? 'ring-1 ring-blue-200 dark:ring-blue-800' : ''}`}>
+        <CardHeader className="memo-header pb-3">
         <div className="flex items-start justify-between h-full">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -96,7 +105,10 @@ export function MemoCard({
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleViewRelated}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleViewRelated()
+              }}
               className="h-8 w-8"
               title="View related memos"
             >
@@ -105,7 +117,10 @@ export function MemoCard({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onEdit?.(memo)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit?.(memo)
+              }}
               className="h-8 w-8"
             >
               <Edit className="h-4 w-4" />
@@ -113,7 +128,10 @@ export function MemoCard({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onDelete?.(memo)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete?.(memo)
+              }}
               className="h-8 w-8 text-destructive"
             >
               <Trash2 className="h-4 w-4" />
@@ -216,6 +234,7 @@ export function MemoCard({
           )}
         </div>
       </div>
-    </Card>
+      </Card>
+    </MemoDetailModal>
   )
 }

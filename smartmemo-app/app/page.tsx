@@ -3,6 +3,7 @@ import { MemoList } from '@/components/memo/memo-list'
 import { GraphView } from '@/components/memo/graph-view'
 import { MemoStats, PopularTags } from '@/components/memo/memo-stats'
 import { UserNav } from '@/components/auth/user-nav'
+import { AIDebugPanel } from '@/components/debug/ai-debug-panel'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -49,10 +50,11 @@ export default async function Home() {
         </div>
         
         <Tabs defaultValue="list" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 max-w-lg">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
             <TabsTrigger value="list">メモ一覧</TabsTrigger>
             <TabsTrigger value="graph">知識グラフ</TabsTrigger>
             <TabsTrigger value="stats">統計</TabsTrigger>
+            <TabsTrigger value="debug">AI診断</TabsTrigger>
           </TabsList>
           
           <TabsContent value="list">
@@ -71,6 +73,10 @@ export default async function Home() {
               <MemoStats memos={memos} />
               <PopularTags memos={memos} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="debug">
+            <AIDebugPanel />
           </TabsContent>
         </Tabs>
       </div>
